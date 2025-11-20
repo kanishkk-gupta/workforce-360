@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Employee Attrition Prediction Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Employee Attrition Prediction Dashboard</h1>
+            <p class="subtitle">Predict employee attrition using a trained CatBoost model</p>
+        </header>
+
+        <div class="main-content">
+            <!-- Authentication -->
+            <div class="form-container" id="loginSection">
+                <h2>Secure Access</h2>
+                <p class="helper-text">Sign in as HR or Employee to access personalized tools.</p>
+                <div class="role-toggle">
+                    <label class="role-option">
+                        <input type="radio" name="role" value="hr" checked>
+                        <span>HR Portal</span>
+                    </label>
+                    <label class="role-option">
+                        <input type="radio" name="role" value="employee">
+                        <span>Employee Portal</span>
+                    </label>
+                </div>
+
+                <form id="loginForm" class="login-form">
+                    <div id="hrFields">
+                        <div class="form-group">
+                            <label for="hrUsername">HR Username</label>
+                            <input type="text" id="hrUsername" class="text-input" placeholder="e.g. hr_manager">
+                        </div>
+                        <div class="form-group">
+                            <label for="hrPassword">Password</label>
+                            <input type="password" id="hrPassword" class="text-input" placeholder="Enter password">
+                        </div>
+                    </div>
+
+                    <div id="employeeFields" style="display: none;">
+                        <div class="form-group">
+                            <label for="employeeIdLogin">Employee ID</label>
+                            <input type="text" id="employeeIdLogin" class="text-input" placeholder="Enter your Employee ID">
+                        </div>
+                    </div>
+
+                    <button type="submit" class="primary-btn" id="loginBtn">Sign In</button>
+                </form>
+                <div id="loginStatus" class="upload-status"></div>
+            </div>
+
+            <!-- Employee Portal -->
+            <div id="employeePortal" class="portal-stack" style="display: none;">
+                <div class="form-container">
+                    <div class="portal-header">
+                        <div>
+                            <h2>Employee Portal</h2>
+                            <p id="employeeWelcome" class="helper-text"></p>
+                        </div>
+                        <button class="logout-btn" id="employeeLogoutBtn">Logout</button>
+                    </div>
+                    <p>Check your attrition risk and understand the top factors influencing it.</p>
+                    <button class="primary-btn" id="employeePredictBtn">Check My Attrition Risk</button>
+                    <div id="employeeSelfStatus" class="upload-status"></div>
+                </div>
+
+                <div class="form-container">
+                    <h2>Share Feedback</h2>
+                    <p class="helper-text">Your note is anonymized and aggregated with others to guide HR improvements.</p>
+                    <div class="form-group">
+                        <label for="feedbackCategory">Select focus area</label>
+                        <select id="feedbackCategory" class="select-input">
+                            <option value="Work Environment">Work Environment</option>
+                            <option value="Management">Management</option>
+                            <option value="Company Culture">Company Culture</option>
+                            <option value="Team Collaboration">Team Collaboration</option>
+                            <option value="Compensation & Benefits">Compensation & Benefits</option>
+                            <option value="Career Growth">Career Growth</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Give a star rating</label>
+                        <div class="star-rating" id="feedbackRating">
+                            <input type="radio" name="rating" id="star5" value="5"><label for="star5">★</label>
+                            <input type="radio" name="rating" id="star4" value="4"><label for="star4">★</label>
+                            <input type="radio" name="rating" id="star3" value="3" checked><label for="star3">★</label>
+                            <input type="radio" name="rating" id="star2" value="2"><label for="star2">★</label>
+                            <input type="radio" name="rating" id="star1" value="1"><label for="star1">★</label>
+                        </div>
+                    </div>
+                    <textarea id="feedbackInput" class="textarea-input" rows="4" placeholder="Share what is helping or hurting your experience..."></textarea>
+                    <button class="secondary-btn" id="feedbackSubmitBtn">Submit Feedback</button>
+                    <div id="feedbackStatus" class="upload-status"></div>
+                </div>
+
+                <div id="employeePredictionHost"></div>
+            </div>
+
+            <!-- HR Portal -->
+            <div id="hrPortal" class="portal-stack" style="display: none;">
+                <div class="form-container portal-card">
+                    <div class="portal-header">
+                        <div>
+                            <h2>HR Portal</h2>
+                            <p class="helper-text">Upload datasets, analyze attrition, and take quick actions.</p>
+                        </div>
+                        <button class="logout-btn" id="hrLogoutBtn">Logout</button>
+                    </div>
+                    <div class="hr-toolbar">
+                        <button class="primary-btn" id="openUploadModalBtn">Upload Employee CSV</button>
+                    </div>
+                    <p class="helper-text">Upload a dataset to unlock the dashboard tabs.</p>
+                </div>
+
+                <div id="hrTabsWrapper" style="display: none;">
+                    <div class="tab-buttons" id="hrTabButtons">
+                        <button class="tab-btn active" data-tab="hrAttritionTab">Attrition Dashboard</button>
+                        <button class="tab-btn" data-tab="hrDirectoryTab">Employee Directory</button>
+                        <button class="tab-btn" data-tab="hrPredictTab">Predictions</button>
+                        <button class="tab-btn" data-tab="hrSentimentTab">Sentiment Intelligence</button>
+                    </div>
+
+                    <div id="hrAttritionTab" class="tab-panel hr-tab-panel active">
+                        <div class="form-container">
+                            <div class="portal-header">
+                                <div>
+                                    <h2>Employee Attrition Analysis</h2>
+                                    <p class="helper-text">Visualize attrition trends using the latest dataset.</p>
+                                </div>
+                                <button class="secondary-btn" id="refreshDashboardBtn">Refresh Dashboard</button>
+                            </div>
+                            <div id="attritionKpis" class="kpi-grid"></div>
+                            <div id="attritionDashboardStatus" class="upload-status"></div>
+                            <div class="charts-grid">
+                                <div class="chart-card">
+                                    <h3>Distribution of Attrition</h3>
+                                    <canvas id="attritionDistributionChart"></canvas>
+                                </div>
+                                <div class="chart-card">
+                                    <h3>Attrition by Job Level</h3>
+                                    <canvas id="jobLevelChart"></canvas>
+                                </div>
+                                <div class="chart-card">
+                                    <h3>Attrition by Age Group</h3>
+                                    <canvas id="ageGroupChart"></canvas>
+                                </div>
+                                <div class="chart-card">
+                                    <h3>Attrition by Training Times Last Year</h3>
+                                    <canvas id="trainingChart"></canvas>
+                                </div>
+                                <div class="chart-card">
+                                    <h3>Environment Satisfaction</h3>
+                                    <canvas id="environmentChart"></canvas>
+                                </div>
+                                <div class="chart-card">
+                                    <h3>Job Satisfaction</h3>
+                                    <canvas id="jobSatisfactionChart"></canvas>
+                                </div>
+                                <div class="chart-card">
+                                    <h3>Years Since Last Promotion</h3>
+                                    <canvas id="promotionChart"></canvas>
+                                </div>
+                                <div class="chart-card">
+                                    <h3>Work-Life Balance</h3>
+                                    <canvas id="workLifeChart"></canvas>
+                                </div>
+                            </div>
+                            <div id="attritionRecommendations" class="recommendations-panel"></div>
+                        </div>
+                    </div>
+
+                    <div id="hrDirectoryTab" class="tab-panel hr-tab-panel">
+                        <div class="form-container">
+                            <div class="portal-header">
+                                <div>
+                                    <h2>Employee Directory</h2>
+                                    <p class="helper-text">Review each employee card and make quick edits.</p>
+                                </div>
+                                <button class="secondary-btn" id="addEmployeeBtn">Add Employee</button>
+                            </div>
+                            <div id="employeeCards" class="employee-card-grid">
+                                <p class="helper-text">Upload a CSV to see employees appear here.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="hrPredictTab" class="tab-panel hr-tab-panel">
+                        <div id="hrPredictionHost"></div>
+                    </div>
+
+                    <div id="hrSentimentTab" class="tab-panel hr-tab-panel">
+                        <div class="form-container">
+                            <h2>Employee Sentiment Intelligence</h2>
+                            <p class="helper-text">Gemini summarizes anonymized employee feedback. Review mood, department trends, and the latest notes.</p>
+                            <div id="sentimentOverview" class="feedback-summary-card">
+                                <p class="helper-text">Insights will appear here after employees share feedback.</p>
+                            </div>
+                            <div id="sentimentSummaryChart" class="sentiment-chart"></div>
+                            <div id="departmentChart" class="department-chart"></div>
+                            <div id="categoryChart" class="department-chart"></div>
+                            <div id="sentimentRecommendations" class="recommendations-panel"></div>
+                            <div id="recentFeedback" class="feedback-entries"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Search Section -->
+            <div class="form-container" id="searchSection" style="display: none;">
+                <h2>Search Employee by Name</h2>
+                <div class="search-section">
+                    <form id="employeeSearchForm">
+                        <div class="search-group">
+                            <input type="text" id="employeeName" name="employee_name" 
+                                   placeholder="Enter employee name or ID..." 
+                                   class="search-input" required>
+                            <button type="submit" class="search-btn" id="searchBtn">Search & Predict</button>
+                        </div>
+                        <div id="searchStatus" class="search-status"></div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Manual Form Section -->
+            <div class="form-container">
+                <h2>Employee Information (Manual Entry)</h2>
+                <form id="predictionForm">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="age">Age</label>
+                            <input type="range" id="age" name="age" min="18" max="70" value="30" class="slider">
+                            <span class="value-display" id="age-value">30</span>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="department">Department</label>
+                            <select id="department" name="department" class="select-input">
+                                <option value="Sales">Sales</option>
+                                <option value="Research & Development" selected>Research & Development</option>
+                                <option value="Human Resources">Human Resources</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="environment_satisfaction">Environment Satisfaction</label>
+                            <input type="range" id="environment_satisfaction" name="environment_satisfaction" min="1" max="4" value="2" class="slider">
+                            <span class="value-display" id="environment_satisfaction-value">2</span>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="job_role">Job Role</label>
+                            <select id="job_role" name="job_role" class="select-input">
+                                <option value="Sales Executive">Sales Executive</option>
+                                <option value="Research Scientist" selected>Research Scientist</option>
+                                <option value="Laboratory Technician">Laboratory Technician</option>
+                                <option value="Manufacturing Director">Manufacturing Director</option>
+                                <option value="Healthcare Representative">Healthcare Representative</option>
+                                <option value="Manager">Manager</option>
+                                <option value="Sales Representative">Sales Representative</option>
+                                <option value="Research Director">Research Director</option>
+                                <option value="Human Resources">Human Resources</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="job_satisfaction">Job Satisfaction</label>
+                            <input type="range" id="job_satisfaction" name="job_satisfaction" min="1" max="4" value="2" class="slider">
+                            <span class="value-display" id="job_satisfaction-value">2</span>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="monthly_income">Monthly Income</label>
+                            <input type="range" id="monthly_income" name="monthly_income" min="1000" max="20000" value="5000" class="slider">
+                            <span class="value-display" id="monthly_income-value">5000</span>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="num_companies_worked">Number of Companies Worked</label>
+                            <input type="range" id="num_companies_worked" name="num_companies_worked" min="0" max="10" value="2" class="slider">
+                            <span class="value-display" id="num_companies_worked-value">2</span>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="percent_salary_hike">Percent Salary Hike</label>
+                            <input type="range" id="percent_salary_hike" name="percent_salary_hike" min="10" max="25" value="15" class="slider">
+                            <span class="value-display" id="percent_salary_hike-value">15</span>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="relationship_satisfaction">Relationship Satisfaction</label>
+                            <input type="range" id="relationship_satisfaction" name="relationship_satisfaction" min="1" max="4" value="2" class="slider">
+                            <span class="value-display" id="relationship_satisfaction-value">2</span>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="training_times_last_year">Training Times Last Year</label>
+                            <input type="range" id="training_times_last_year" name="training_times_last_year" min="0" max="6" value="2" class="slider">
+                            <span class="value-display" id="training_times_last_year-value">2</span>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="work_life_balance">Work Life Balance</label>
+                            <input type="range" id="work_life_balance" name="work_life_balance" min="1" max="4" value="2" class="slider">
+                            <span class="value-display" id="work_life_balance-value">2</span>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="years_since_last_promotion">Years Since Last Promotion</label>
+                            <input type="range" id="years_since_last_promotion" name="years_since_last_promotion" min="0" max="15" value="3" class="slider">
+                            <span class="value-display" id="years_since_last_promotion-value">3</span>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="years_with_curr_manager">Years With Current Manager</label>
+                            <input type="range" id="years_with_curr_manager" name="years_with_curr_manager" min="0" max="15" value="3" class="slider">
+                            <span class="value-display" id="years_with_curr_manager-value">3</span>
+                        </div>
+
+                        <div class="form-group checkbox-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="over_time" name="over_time" value="true">
+                                <span>Over Time</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="predict-btn">Predict Attrition</button>
+                </form>
+            </div>
+
+            <div class="results-container" id="resultsContainer" style="display: none;">
+                <h2>Prediction Results</h2>
+                <div class="result-card" id="resultCard">
+                    <div class="prediction-result" id="predictionResult"></div>
+                    <div class="probability-section">
+                        <h3>Probability of Attrition</h3>
+                        <div class="probability-bar">
+                            <div class="probability-fill" id="probabilityFill"></div>
+                        </div>
+                        <span class="probability-value" id="probabilityValue"></span>
+                    </div>
+                    <div class="explanation-section" id="explanationSection" style="display: none; margin-top: 1rem;">
+                        <h3>Top Contributing Features</h3>
+                        <div id="topFeaturesList" class="top-features-list"></div>
+                        <h3 id="recommendationsHeader">Recommendations for Retaining the Employee</h3>
+                        <div id="recommendationsList" class="recommendations-list"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Employee Form Modal -->
+            <div id="employeeFormModal" class="modal hidden">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3 id="employeeFormTitle">Add Employee</h3>
+                        <button type="button" class="close-modal" id="closeEmployeeForm">&times;</button>
+                    </div>
+                    <form id="employeeForm" class="modal-form">
+                        <input type="hidden" id="employeeNumberField">
+                        <div class="form-group">
+                            <label for="employeeNameField">Full Name</label>
+                            <input type="text" id="employeeNameField" class="text-input" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="employeeDepartmentField">Department</label>
+                            <input type="text" id="employeeDepartmentField" class="text-input" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="employeeRoleField">Job Role</label>
+                            <input type="text" id="employeeRoleField" class="text-input" required>
+                        </div>
+                        <div class="form-grid two-col">
+                            <div class="form-group">
+                                <label for="employeeAgeField">Age</label>
+                                <input type="number" id="employeeAgeField" class="text-input" min="18" max="70" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="employeeIncomeField">Monthly Income</label>
+                                <input type="number" id="employeeIncomeField" class="text-input" min="0" step="100" required>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="employeeAttritionField">Attrition</label>
+                            <select id="employeeAttritionField" class="select-input">
+                                <option value="false">Staying</option>
+                                <option value="true">Likely to Leave</option>
+                            </select>
+                        </div>
+                        <div class="modal-actions">
+                            <button type="button" class="ghost-btn" id="cancelEmployeeForm">Cancel</button>
+                            <button type="submit" class="primary-btn" id="saveEmployeeBtn">Save</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Upload CSV Modal -->
+            <div id="uploadModal" class="modal hidden">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3>Upload Employee CSV</h3>
+                        <button type="button" class="close-modal" id="closeUploadModal">&times;</button>
+                    </div>
+                    <form id="csvUploadForm" enctype="multipart/form-data">
+                        <div class="file-upload-group">
+                            <label for="csvFile" class="file-upload-label">
+                                <span class="upload-icon">📁</span>
+                                <span class="upload-text">Choose CSV File</span>
+                            </label>
+                            <input type="file" id="csvFile" name="file" accept=".csv" style="display: none;">
+                            <div id="fileName" class="file-name-display"></div>
+                        </div>
+                        <div id="uploadStatus" class="upload-status"></div>
+                        <div class="modal-actions">
+                            <button type="button" class="ghost-btn" id="cancelUploadBtn">Cancel</button>
+                            <button type="submit" class="upload-btn" id="uploadBtn">Upload CSV</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Shared Prediction Workspace -->
+            <div id="predictionWorkspace"></div>
+
+        </div>
+
+        <div class="sidebar" id="sidebar" style="display: none;">
+            <button class="sidebar-toggle" id="sidebarToggle">View Unique Values</button>
+            <div class="sidebar-content" id="sidebarContent" style="display: none;">
+                <h3>Unique Values for Each Feature</h3>
+                <div id="uniqueValuesList"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
